@@ -8,7 +8,7 @@ use pairing::bls12_381::{Bls12, Fr};
 use pairing::{Engine, PrimeField};
 use sapling_crypto::jubjub::JubjubBls12;
 
-use sector_base::api::disk_backed_storage::REAL_SECTOR_SIZE;
+use sector_base::api::disk_backed_storage::LIVE_SECTOR_SIZE;
 use sector_base::api::sector_store::SectorConfig;
 use sector_base::io::fr32::write_unpadded;
 use std::path::Path;
@@ -220,7 +220,7 @@ pub fn get_config(sector_config: &SectorConfig) -> (usize, usize, bool) {
     let proof_sector_bytes = sector_bytes;
 
     // If configuration is 'completely real', then we can use the parameters pre-generated for the real circuit.
-    let uses_official_circuit = sector_bytes as u64 == REAL_SECTOR_SIZE;
+    let uses_official_circuit = sector_bytes as u64 == LIVE_SECTOR_SIZE;
 
     (sector_bytes, proof_sector_bytes, uses_official_circuit)
 }
@@ -548,7 +548,6 @@ pub fn get_unsealed_range<T: Into<PathBuf> + AsRef<Path>>(
     let f_out = File::create(output_path)?;
     let mut buf_writer = BufWriter::new(f_out);
 
-    // FIXME: Remove dead branch.
     let unsealed =
         ZigZagDrgPoRep::extract_all(&public_params(proof_sector_bytes), &replica_id, &data)?;
 

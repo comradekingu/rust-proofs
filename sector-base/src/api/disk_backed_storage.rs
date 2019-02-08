@@ -16,13 +16,10 @@ use std::path::Path;
 // ensure the chosen sector size is a multiple of 32.
 
 // Sector size, in bytes, to use when testing real proofs. (real sector store)
-pub const REAL_SECTOR_SIZE: u64 = 128;
+pub const LIVE_SECTOR_SIZE: u64 = 128;
 
 // Sector size, in bytes, for tests which fake sealing with a subset of the data. (fast fake sector store)
-pub const FAST_SECTOR_SIZE: u64 = 1024;
-
-// Sector size, in bytes, during live operation -- which also fakes sealing with a subset of the data. (slow fake sector store)
-pub const SLOW_SECTOR_SIZE: u64 = 1 << 30;
+pub const TEST_SECTOR_SIZE: u64 = 1024;
 
 /// Initializes and returns a boxed SectorStore instance with very small, unrealistic/insecure parameters
 /// for use in testing.
@@ -181,11 +178,7 @@ impl DiskManager {
     }
 }
 
-pub struct RealConfig {
-    sector_bytes: u64,
-}
-
-pub struct FakeConfig {
+pub struct Config {
     sector_bytes: u64,
 }
 
@@ -228,16 +221,16 @@ pub fn new_sector_store(
 
 pub fn new_sector_config(cs: &ConfiguredStore) -> Box<SectorConfig> {
     match *cs {
-        ConfiguredStore::Live => Box::new(RealConfig {
-            sector_bytes: SLOW_SECTOR_SIZE,
+        ConfiguredStore::Live => Box::new(Config {
+            sector_bytes: LIVE_SECTOR_SIZE,
         }),
-        ConfiguredStore::Test => Box::new(RealConfig {
-            sector_bytes: FAST_SECTOR_SIZE,
+        ConfiguredStore::Test => Box::new(Config {
+            sector_bytes: TEST_SECTOR_SIZE,
         }),
     }
 }
 
-impl SectorConfig for RealConfig {
+impl SectorConfig for Config {
     fn max_unsealed_bytes_per_sector(&self) -> u64 {
         unpadded_bytes(self.sector_bytes)
     }
