@@ -210,19 +210,6 @@ fn pad_safe_fr(unpadded: &FrSafe) -> Fr32Ary {
     res
 }
 
-/// Validate sector_config configuration and calculates derived configuration.
-///
-/// # Return Values
-/// * - `sector_bytes` is the size (in bytes) of sector which should be stored on disk.
-pub fn get_config(sector_config: &SectorConfig) -> (usize, bool) {
-    let sector_bytes = sector_config.sector_bytes() as usize;
-
-    // If configuration is 'completely real', then we can use the parameters pre-generated for the real circuit.
-    let uses_official_circuit = sector_bytes as u64 == LIVE_SECTOR_SIZE;
-
-    (sector_bytes, uses_official_circuit)
-}
-
 pub struct PoStOutput {
     pub snark_proof: [u8; 192],
     pub faults: Vec<u64>,
@@ -384,7 +371,7 @@ pub fn seal<T: Into<PathBuf> + AsRef<Path>>(
     prover_id_in: &FrSafe,
     sector_id_in: &FrSafe,
 ) -> error::Result<SealOutput> {
-    let (sector_bytes, uses_official_circuit) = get_config(sector_config);
+    let sector_bytes = sector_config.sector_bytes() as usize;
 
     let public_params = public_params(sector_bytes);
     let challenges = public_params.layer_challenges;
@@ -513,7 +500,7 @@ pub fn get_unsealed_range<T: Into<PathBuf> + AsRef<Path>>(
     offset: u64,
     num_bytes: u64,
 ) -> error::Result<(u64)> {
-    let (sector_bytes, _uses_official_circuit) = get_config(sector_config);
+    let sector_bytes = sector_config.sector_bytes() as usize;
 
     let prover_id = pad_safe_fr(prover_id_in);
     let sector_id = pad_safe_fr(sector_id_in);
@@ -547,7 +534,7 @@ pub fn verify_seal(
     sector_id_in: &FrSafe,
     proof_vec: &[u8],
 ) -> error::Result<bool> {
-    let (sector_bytes, uses_official_circuit) = get_config(sector_config);
+    let sector_bytes = sector_config.sector_bytes() as usize;
 
     let prover_id = pad_safe_fr(prover_id_in);
     let sector_id = pad_safe_fr(sector_id_in);
