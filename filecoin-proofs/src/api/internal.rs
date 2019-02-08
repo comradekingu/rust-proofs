@@ -35,28 +35,6 @@ use storage_proofs::zigzag_graph::ZigZagBucketGraph;
 
 use crate::error;
 
-/*
-Sector configuration design notes.
-
-- Don't break existing tests.
-- Don't run 'unrealistic' parameters outside of tests.
-- We can detune security consciously for devnet practicality.
-- Define this — consider adding an explicit, single-valued security parameter for that purpose.
- - Ideally, limit this to two parameter choices:
-  - Layers
-  - Partitions
-
-Is this a test?
- - Yes
-  - Is this a 'ProofTest'?
-   - YES or NO: we can collapse this distinction now because we are able to run
-   - Use super small bogus parameters
- - No
-  - Is the env var (FIL_USE_SMALL_SECTORS) set?
-   - YES
-   - NO
-*/
-
 type Commitment = Fr32Ary;
 type ChallengeSeed = Fr32Ary;
 
@@ -374,7 +352,6 @@ pub fn seal<T: Into<PathBuf> + AsRef<Path>>(
     let sector_bytes = sector_config.sector_bytes() as usize;
 
     let public_params = public_params(sector_bytes);
-    let challenges = public_params.layer_challenges;
 
     let f_in = File::open(in_path)?;
 
@@ -405,12 +382,9 @@ pub fn seal<T: Into<PathBuf> + AsRef<Path>>(
 
     let compound_public_params = ZigZagCompound::setup(&compound_setup_params)?;
 
-    let (tau, aux) = perform_replication(
-        out_path,
-        &compound_public_params.vanilla_params,
-        &replica_id,
-        &mut data,
-    )?;
+    let (tau, aux) = ZigZagDrgPoRep::replicate(&public_params, &replica_id, &mut data, None)?;
+
+    write_data(out_path, &data)?;
 
     let public_tau = tau.simplify();
 
@@ -466,21 +440,6 @@ pub fn seal<T: Into<PathBuf> + AsRef<Path>>(
         comm_d,
         snark_proof: proof_bytes,
     })
-}
-
-fn perform_replication<T: AsRef<Path>>(
-    out_path: T,
-    public_params: &<ZigZagDrgPoRep<DefaultTreeHasher> as ProofScheme>::PublicParams,
-    replica_id: &<DefaultTreeHasher as Hasher>::Domain,
-    data: &mut [u8],
-) -> error::Result<(
-    layered_drgporep::Tau<<DefaultTreeHasher as Hasher>::Domain>,
-    Vec<MerkleTree<<DefaultTreeHasher as Hasher>::Domain, <DefaultTreeHasher as Hasher>::Function>>,
-)> {
-    let (tau, aux) = ZigZagDrgPoRep::replicate(public_params, &replica_id, data, None)?;
-
-    write_data(out_path, data)?;
-    Ok((tau, aux))
 }
 
 fn write_data<T: AsRef<Path>>(out_path: T, data: &[u8]) -> error::Result<()> {
