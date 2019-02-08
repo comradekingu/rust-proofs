@@ -78,14 +78,6 @@ const POST_PROOF_BYTES: usize = SNARK_BYTES * POST_PARTITIONS;
 
 type SnarkProof = [u8; POREP_PROOF_BYTES];
 
-fn dummy_parameter_cache_path(sector_config: &SectorConfig, sector_size: usize) -> PathBuf {
-    parameter_cache_path(&format!(
-        "{}[{}]",
-        sector_config.dummy_parameter_cache_name(),
-        sector_size
-    ))
-}
-
 pub const OFFICIAL_ZIGZAG_PARAM_FILENAME: &str = "params.out";
 pub const OFFICIAL_POST_PARAM_FILENAME: &str = "post-params.out";
 
@@ -111,8 +103,16 @@ fn official_post_params_path() -> PathBuf {
     parameter_cache_dir().join(OFFICIAL_POST_PARAM_FILENAME)
 }
 
-fn get_zigzag_params() -> Option<groth16::Parameters<Bls12>> {
-    (*ZIGZAG_PARAMS).clone()
+fn get_zigzag_params(sector_bytes: usize) -> error::Result<groth16::Parameters<Bls12>> {
+    if sector_bytes as u64 == LIVE_SECTOR_SIZE {
+        if let Some(z) = (*ZIGZAG_PARAMS).clone() {
+            return Ok(z);
+        }
+    }
+
+    let public_params = public_params(sector_bytes as usize);
+
+    ZigZagCompound::groth_params(&public_params, &ENGINE_PARAMS).map_err(|e| e.into())
 }
 
 fn get_post_params(sector_bytes: usize) -> error::Result<groth16::Parameters<Bls12>> {
@@ -440,24 +440,13 @@ pub fn seal<T: Into<PathBuf> + AsRef<Path>>(
         tau: tau.layer_taus,
     };
 
-    let groth_params = if uses_official_circuit {
-        get_zigzag_params()
-    } else {
-        None
-    };
-
-    let must_cache_params = if groth_params.is_some() {
-        println!("Using official parameters.");
-        false
-    } else {
-        true
-    };
+    let groth_params = get_zigzag_params(sector_bytes)?;
 
     let proof = ZigZagCompound::prove(
         &compound_public_params,
         &public_inputs,
         &private_inputs,
-        groth_params,
+        Some(groth_params),
     )?;
 
     let mut buf = Vec::with_capacity(POREP_PROOF_BYTES);
@@ -466,13 +455,6 @@ pub fn seal<T: Into<PathBuf> + AsRef<Path>>(
 
     let mut proof_bytes = [0; POREP_PROOF_BYTES];
     proof_bytes.copy_from_slice(&buf);
-
-    if must_cache_params {
-        write_params_to_cache(
-            proof.groth_params.clone(),
-            &dummy_parameter_cache_path(sector_config, sector_bytes),
-        )?;
-    }
 
     let comm_r = commitment_from_fr::<Bls12>(public_tau.comm_r.into());
     let comm_d = commitment_from_fr::<Bls12>(public_tau.comm_d.into());
@@ -597,16 +579,9 @@ pub fn verify_seal(
         k: None,
     };
 
-    let groth_params = if uses_official_circuit {
-        match get_zigzag_params() {
-            Some(p) => p,
-            None => read_cached_params(&dummy_parameter_cache_path(sector_config, sector_bytes))?,
-        }
-    } else {
-        read_cached_params(&dummy_parameter_cache_path(sector_config, sector_bytes))?
-    };
+    let groth_params = get_zigzag_params(sector_bytes);
 
-    let proof = MultiProof::new_from_reader(Some(POREP_PARTITIONS), proof_vec, groth_params)?;
+    let proof = MultiProof::new_from_reader(Some(POREP_PARTITIONS), proof_vec, groth_params?)?;
 
     ZigZagCompound::verify(&compound_public_params, &public_inputs, &proof).map_err(|e| e.into())
 }
