@@ -15,11 +15,11 @@ use std::path::Path;
 // but this is not recommended, since some sealed sector sizes are invalid. If you must set this manually,
 // ensure the chosen sector size is a multiple of 32.
 
-// Sector size, in bytes, to use when testing real proofs. (real sector store)
-pub const LIVE_SECTOR_SIZE: u64 = 128;
-
-// Sector size, in bytes, for tests which fake sealing with a subset of the data. (fast fake sector store)
+// Sector size, in bytes, for tests.
 pub const TEST_SECTOR_SIZE: u64 = 1024;
+
+// Sector size, in bytes, during live operation.
+pub const LIVE_SECTOR_SIZE: u64 = 1 << 25; // 32MiB
 
 /// Initializes and returns a boxed SectorStore instance with very small, unrealistic/insecure parameters
 /// for use in testing.
