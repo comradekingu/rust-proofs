@@ -78,9 +78,6 @@ const POST_PROOF_BYTES: usize = SNARK_BYTES * POST_PARTITIONS;
 
 type SnarkProof = [u8; POREP_PROOF_BYTES];
 
-/// How big should a fake sector be when faking proofs?
-const FAKE_SECTOR_BYTES: usize = 128;
-
 fn dummy_parameter_cache_path(sector_config: &SectorConfig, sector_size: usize) -> PathBuf {
     parameter_cache_path(&format!(
         "{}[{}]",
@@ -132,7 +129,7 @@ const DEGREE: usize = 2;
 const EXPANSION_DEGREE: usize = 8;
 const SLOTH_ITER: usize = 0;
 const LAYERS: usize = 2; // TODO: 10;
-const TAPER_LAYERS: usize = LAYERS; // TODO: 7
+const TAPER_LAYERS: usize = 0; // TODO: 7
 const TAPER: f64 = 1.0 / 3.0;
 const CHALLENGE_COUNT: usize = 2;
 const DRG_SEED: [u32; 7] = [1, 2, 3, 4, 5, 6, 7]; // Arbitrary, need a theory for how to vary this over time.
@@ -216,7 +213,6 @@ fn pad_safe_fr(unpadded: &FrSafe) -> Fr32Ary {
 /// Validate sector_config configuration and calculates derived configuration.
 ///
 /// # Return Values
-/// * - `fake` is true when faking.
 /// * - `sector_bytes` is the size (in bytes) of sector which should be stored on disk.
 /// * - `proof_sector_bytes` is the size of the sector which will be proved when faking.
 pub fn get_config(sector_config: &SectorConfig) -> (usize, usize, bool) {
@@ -516,31 +512,10 @@ fn perform_replication<T: AsRef<Path>>(
     layered_drgporep::Tau<<DefaultTreeHasher as Hasher>::Domain>,
     Vec<MerkleTree<<DefaultTreeHasher as Hasher>::Domain, <DefaultTreeHasher as Hasher>::Function>>,
 )> {
-    // FIXME: Remove dead branch.
-    if false {
-        // When faking replication, we write the original data to disk, before replication.
-        write_data(out_path, data)?;
+    let (tau, aux) = ZigZagDrgPoRep::replicate(public_params, &replica_id, data, None)?;
 
-        assert!(
-            data.len() >= FAKE_SECTOR_BYTES,
-            "data length ({}) is less than FAKE_SECTOR_BYTES ({}) when faking replication",
-            data.len(),
-            FAKE_SECTOR_BYTES
-        );
-        let (tau, aux) = ZigZagDrgPoRep::replicate(
-            public_params,
-            &replica_id,
-            &mut data[0..proof_sector_bytes],
-            None,
-        )?;
-        Ok((tau, aux))
-    } else {
-        // When not faking replication, we write the replicated data to disk, after replication.
-        let (tau, aux) = ZigZagDrgPoRep::replicate(public_params, &replica_id, data, None)?;
-
-        write_data(out_path, data)?;
-        Ok((tau, aux))
-    }
+    write_data(out_path, data)?;
+    Ok((tau, aux))
 }
 
 fn write_data<T: AsRef<Path>>(out_path: T, data: &[u8]) -> error::Result<()> {
@@ -574,11 +549,8 @@ pub fn get_unsealed_range<T: Into<PathBuf> + AsRef<Path>>(
     let mut buf_writer = BufWriter::new(f_out);
 
     // FIXME: Remove dead branch.
-    let unsealed = if false {
-        data
-    } else {
-        ZigZagDrgPoRep::extract_all(&public_params(proof_sector_bytes), &replica_id, &data)?
-    };
+    let unsealed =
+        ZigZagDrgPoRep::extract_all(&public_params(proof_sector_bytes), &replica_id, &data)?;
 
     let written = write_unpadded(
         &unsealed,
