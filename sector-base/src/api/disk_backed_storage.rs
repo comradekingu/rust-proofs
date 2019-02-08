@@ -228,20 +228,16 @@ pub fn new_sector_store(
 
 pub fn new_sector_config(cs: &ConfiguredStore) -> Box<SectorConfig> {
     match *cs {
-        ConfiguredStore::Live => Box::new(FakeConfig {
+        ConfiguredStore::Live => Box::new(RealConfig {
             sector_bytes: SLOW_SECTOR_SIZE,
         }),
-        ConfiguredStore::Test => Box::new(FakeConfig {
+        ConfiguredStore::Test => Box::new(RealConfig {
             sector_bytes: FAST_SECTOR_SIZE,
         }),
     }
 }
 
 impl SectorConfig for RealConfig {
-    fn is_fake(&self) -> bool {
-        false
-    }
-
     fn max_unsealed_bytes_per_sector(&self) -> u64 {
         unpadded_bytes(self.sector_bytes)
     }
@@ -256,10 +252,6 @@ impl SectorConfig for RealConfig {
 }
 
 impl SectorConfig for FakeConfig {
-    fn is_fake(&self) -> bool {
-        true
-    }
-
     fn max_unsealed_bytes_per_sector(&self) -> u64 {
         unpadded_bytes(self.sector_bytes)
     }

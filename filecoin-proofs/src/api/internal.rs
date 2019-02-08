@@ -219,24 +219,14 @@ fn pad_safe_fr(unpadded: &FrSafe) -> Fr32Ary {
 /// * - `fake` is true when faking.
 /// * - `sector_bytes` is the size (in bytes) of sector which should be stored on disk.
 /// * - `proof_sector_bytes` is the size of the sector which will be proved when faking.
-pub fn get_config(sector_config: &SectorConfig) -> (bool, usize, usize, bool) {
-    let fake = sector_config.is_fake();
+pub fn get_config(sector_config: &SectorConfig) -> (usize, usize, bool) {
     let sector_bytes = sector_config.sector_bytes() as usize;
-    let proof_sector_bytes = if fake {
-        FAKE_SECTOR_BYTES
-    } else {
-        sector_bytes
-    };
+    let proof_sector_bytes = sector_bytes;
 
     // If configuration is 'completely real', then we can use the parameters pre-generated for the real circuit.
-    let uses_official_circuit = !fake && (sector_bytes as u64 == REAL_SECTOR_SIZE);
+    let uses_official_circuit = sector_bytes as u64 == REAL_SECTOR_SIZE;
 
-    (
-        fake,
-        sector_bytes,
-        proof_sector_bytes,
-        uses_official_circuit,
-    )
+    (sector_bytes, proof_sector_bytes, uses_official_circuit)
 }
 
 pub struct PoStOutput {
@@ -400,7 +390,7 @@ pub fn seal<T: Into<PathBuf> + AsRef<Path>>(
     prover_id_in: &FrSafe,
     sector_id_in: &FrSafe,
 ) -> error::Result<SealOutput> {
-    let (fake, sector_bytes, proof_sector_bytes, uses_official_circuit) = get_config(sector_config);
+    let (sector_bytes, proof_sector_bytes, uses_official_circuit) = get_config(sector_config);
 
     let public_params = public_params(proof_sector_bytes);
     let challenges = public_params.layer_challenges;
@@ -439,7 +429,6 @@ pub fn seal<T: Into<PathBuf> + AsRef<Path>>(
         &compound_public_params.vanilla_params,
         &replica_id,
         &mut data,
-        fake,
         proof_sector_bytes,
     )?;
 
@@ -522,13 +511,13 @@ fn perform_replication<T: AsRef<Path>>(
     public_params: &<ZigZagDrgPoRep<DefaultTreeHasher> as ProofScheme>::PublicParams,
     replica_id: &<DefaultTreeHasher as Hasher>::Domain,
     data: &mut [u8],
-    fake: bool,
     proof_sector_bytes: usize,
 ) -> error::Result<(
     layered_drgporep::Tau<<DefaultTreeHasher as Hasher>::Domain>,
     Vec<MerkleTree<<DefaultTreeHasher as Hasher>::Domain, <DefaultTreeHasher as Hasher>::Function>>,
 )> {
-    if fake {
+    // FIXME: Remove dead branch.
+    if false {
         // When faking replication, we write the original data to disk, before replication.
         write_data(out_path, data)?;
 
@@ -571,8 +560,7 @@ pub fn get_unsealed_range<T: Into<PathBuf> + AsRef<Path>>(
     offset: u64,
     num_bytes: u64,
 ) -> error::Result<(u64)> {
-    let (fake, sector_bytes, proof_sector_bytes, _uses_official_circuit) =
-        get_config(sector_config);
+    let (sector_bytes, proof_sector_bytes, _uses_official_circuit) = get_config(sector_config);
 
     let prover_id = pad_safe_fr(prover_id_in);
     let sector_id = pad_safe_fr(sector_id_in);
@@ -585,7 +573,8 @@ pub fn get_unsealed_range<T: Into<PathBuf> + AsRef<Path>>(
     let f_out = File::create(output_path)?;
     let mut buf_writer = BufWriter::new(f_out);
 
-    let unsealed = if fake {
+    // FIXME: Remove dead branch.
+    let unsealed = if false {
         data
     } else {
         ZigZagDrgPoRep::extract_all(&public_params(proof_sector_bytes), &replica_id, &data)?
@@ -610,8 +599,7 @@ pub fn verify_seal(
     sector_id_in: &FrSafe,
     proof_vec: &[u8],
 ) -> error::Result<bool> {
-    let (_fake, _sector_bytes, proof_sector_bytes, uses_official_circuit) =
-        get_config(sector_config);
+    let (_sector_bytes, proof_sector_bytes, uses_official_circuit) = get_config(sector_config);
 
     let prover_id = pad_safe_fr(prover_id_in);
     let sector_id = pad_safe_fr(sector_id_in);
