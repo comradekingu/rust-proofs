@@ -279,7 +279,7 @@ pub mod tests {
     #[test]
     fn max_unsealed_bytes_per_sector_checks() {
         let xs = vec![
-            (ConfiguredStore::Live, 1065353216),
+            (ConfiguredStore::Live, 33292288),
             (ConfiguredStore::Test, 1016),
         ];
 
