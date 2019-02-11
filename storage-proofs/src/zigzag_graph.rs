@@ -26,7 +26,7 @@ pub type ParentCache = HashMap<usize, Vec<usize>>;
 // ZigZagGraph will hold two different (but related) `ParentCache`,
 // the first one for the `forward` direction and the second one
 // for the `reversed`.
-pub type TwoWayParentCache = Vec<ParentCache>;
+pub type TwoWayParentCache = [ParentCache; 2];
 
 // The cache is hold in an `Arc` to make it available across different
 // threads. It is accessed through a `RwLock` to distinguish between
@@ -123,7 +123,7 @@ where
             expansion_degree,
             reversed: false,
             feistel_precomputed: feistel::precompute((expansion_degree * nodes) as u32),
-            parents_cache: Arc::new(RwLock::new(vec![
+            parents_cache: Arc::new(RwLock::new([
                 HashMap::with_capacity(cache_entries),
                 HashMap::with_capacity(cache_entries),
             ])),
