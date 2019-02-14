@@ -8,7 +8,7 @@ use std::sync::Mutex;
 use bellman::groth16;
 use pairing::bls12_381::{Bls12, Fr};
 use pairing::{Engine, PrimeField};
-use sapling_crypto::jubjub::{JubjubBls12, JubjubEngine};
+use sapling_crypto::jubjub::JubjubBls12;
 
 use sector_base::api::disk_backed_storage::LIVE_SECTOR_SIZE;
 use sector_base::api::sector_store::SectorConfig;
@@ -77,24 +77,24 @@ lazy_static! {
 ////////////////////////////////////////////////////////////////////////////////
 /// Groth Params Memory Cache
 
-type GrothParams<E> = groth16::Parameters<E>;
-type GrothMemCache<E> = HashMap<String, Box<GrothParams<E>>>;
+type Bls12GrothParams = groth16::Parameters<Bls12>;
+type GrothMemCache = HashMap<String, Bls12GrothParams>;
 
 lazy_static! {
-    static ref GROTH_PARAM_MEMORY_CACHE: Mutex<GrothMemCache<Bls12>> = Default::default();
+    static ref GROTH_PARAM_MEMORY_CACHE: Mutex<GrothMemCache> = Default::default();
 }
 
-fn lookup_groth_params<E: JubjubEngine, F: FnOnce() -> error::Result<GrothParams<E>>>(
-    cache: &mut GrothMemCache<E>,
+fn lookup_groth_params<F: FnOnce() -> error::Result<Bls12GrothParams>>(
+    cache: &mut GrothMemCache,
     identifier: String,
     generator: F,
-) -> error::Result<GrothParams<E>> {
+) -> error::Result<Bls12GrothParams> {
     info!(FCP_LOG, "trying memory cache for: {}", &identifier; "target" => "params");
     let params = match cache.entry(identifier) {
-        Entry::Vacant(entry) => *entry.insert(Box::new(generator()?)).clone(),
+        Entry::Vacant(entry) => entry.insert(generator()?).clone(),
         Entry::Occupied(entry) => {
             info!(FCP_LOG, "found params in cache"; "target" => "params");
-            *entry.get().clone()
+            entry.get().clone()
         }
     };
 
