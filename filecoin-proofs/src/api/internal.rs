@@ -1,4 +1,6 @@
+use std::collections::hash_map::Entry::Vacant;
 use std::collections::HashMap;
+
 use std::fs::File;
 use std::io::{BufWriter, Read, Write};
 use std::path::PathBuf;
@@ -88,12 +90,20 @@ fn lookup_groth_params<E: JubjubEngine, F: FnOnce() -> error::Result<GrothParams
     identifier: String,
     generator: F,
 ) -> error::Result<GrothParams<E>> {
-    let f = || Box::new(generator().unwrap()); // FIXME: don't unwrap
+    //let f = || Ok(Box::new(generator()?)); // FIXME: don't unwrap
 
     info!(FCP_LOG, "trying memory cache for: {}", identifier; "target" => "params");
-    let entry = cache.entry(identifier).or_insert_with(f);
+    let params = match cache.get(&identifier) {
+        Some(found) => *found.clone(),
+        None => {
+            let generated = Box::new(generator()?);
+            cache.insert(identifier, generated.clone());
+            //            return Ok(*generated);
+            *generated
+        }
+    };
 
-    Ok(*entry.clone())
+    return Ok(params);
 }
 ////////////////////////////////////////////////////////////////////////////////
 
