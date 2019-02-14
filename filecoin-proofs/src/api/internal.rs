@@ -93,7 +93,7 @@ fn lookup_groth_params<F: FnOnce() -> error::Result<Bls12GrothParams>>(
     let params = match cache.entry(identifier) {
         Entry::Vacant(entry) => entry.insert(generator()?).clone(),
         Entry::Occupied(entry) => {
-            info!(FCP_LOG, "found params in cache"; "target" => "params");
+            info!(FCP_LOG, "found params in memory cache"; "target" => "params");
             entry.get().clone()
         }
     };
